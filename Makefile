@@ -2,15 +2,17 @@ KDIR=/lib/modules/$(shell uname -r)/build
 
 CFLAGS_user = -std=gnu99 -Wall -Wextra -Werror
 LDFLAGS_user = -lpthread
+ccflags-y := -std=gnu99 -Wno-declaration-after-statement
 
 obj-m += khttpd.o
 khttpd-objs := \
+	fib.o \
 	http_parser.o \
 	http_server.o \
-	main.o
+	main.o		  
 
 GIT_HOOKS := .git/hooks/applied
-all: $(GIT_HOOKS) http_parser.c htstress
+all: $(GIT_HOOKS) http_parser.c bignum.h htstress
 	make -C $(KDIR) M=$(PWD) modules
 
 $(GIT_HOOKS):
@@ -44,5 +46,8 @@ http_parser.c:
 	@sed -i 's/#include <stdint.h>/#include "compat\/stdint.h"/' http_parser.h
 	@echo "File http_parser.h was patched."
 
+bignum.h:
+	wget -q https://raw.githubusercontent.com/colinyoyo26/fibdrv/master/bignum.h
+
 distclean: clean
-	$(RM) http_parser.c http_parser.h
+	$(RM) http_parser.c http_parser.h bignum.h

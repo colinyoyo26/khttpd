@@ -9,16 +9,16 @@
 
 #define CRLF "\r\n"
 
-#define HTTP_RESPONSE_200_DUMMY                               \
-    ""                                                        \
-    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF     \
-    "Content-Type: text/plain" CRLF "Content-Length: 12" CRLF \
-    "Connection: Close" CRLF CRLF "Hello World!" CRLF
-#define HTTP_RESPONSE_200_KEEPALIVE_DUMMY                     \
-    ""                                                        \
-    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF     \
-    "Content-Type: text/plain" CRLF "Content-Length: 12" CRLF \
-    "Connection: Keep-Alive" CRLF CRLF "Hello World!" CRLF
+#define HTTP_RESPONSE_200                                      \
+    ""                                                         \
+    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF      \
+    "Content-Type: text/plain" CRLF "Content-Length: %lu" CRLF \
+    "Connection: Close" CRLF CRLF
+#define HTTP_RESPONSE_200_KEEPALIVE                            \
+    ""                                                         \
+    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF      \
+    "Content-Type: text/plain" CRLF "Content-Length: %lu" CRLF \
+    "Connection: Keep-Alive" CRLF CRLF
 #define HTTP_RESPONSE_501                                              \
     ""                                                                 \
     "HTTP/1.1 501 Not Implemented" CRLF "Server: " KBUILD_MODNAME CRLF \
@@ -29,6 +29,9 @@
     "HTTP/1.1 501 Not Implemented" CRLF "Server: " KBUILD_MODNAME CRLF \
     "Content-Type: text/plain" CRLF "Content-Length: 21" CRLF          \
     "Connection: KeepAlive" CRLF CRLF "501 Not Implemented" CRLF
+
+#define HELLOW "Hello World!" CRLF
+
 
 #define RECV_BUFFER_SIZE 4096
 
@@ -75,15 +78,44 @@ static int http_server_send(struct socket *sock, const char *buf, size_t size)
 
 static int http_server_response(struct http_request *request, int keep_alive)
 {
-    char *response;
+    char *response, *be_free = NULL;
+    char buf[128];
 
     pr_info("requested_url = %s\n", request->request_url);
     if (request->method != HTTP_GET)
         response = keep_alive ? HTTP_RESPONSE_501_KEEPALIVE : HTTP_RESPONSE_501;
-    else
-        response = keep_alive ? HTTP_RESPONSE_200_KEEPALIVE_DUMMY
-                              : HTTP_RESPONSE_200_DUMMY;
+    else {
+        char *url = request->request_url;
+        if (!strncmp(url, "/fib/", 5)) {
+            long long k;
+            if (kstrtoll(url + 5, 10, &k)) {
+                response = keep_alive ? HTTP_RESPONSE_501_KEEPALIVE
+                                      : HTTP_RESPONSE_501;
+                goto out;
+            }
+            response = fib_sequence(k);
+            if (keep_alive)
+                snprintf(buf, 128, HTTP_RESPONSE_200_KEEPALIVE,
+                         strlen(response));
+            else
+                snprintf(buf, 128, HTTP_RESPONSE_200, strlen(response));
+            int buf_len = strlen(buf);
+            strncat(response, CRLF, strlen(CRLF));
+            memmove(response + buf_len, response, strlen(response));
+            memcpy(response, buf, buf_len);
+            be_free = response;
+        } else {
+            if (keep_alive)
+                snprintf(buf, 128, HTTP_RESPONSE_200_KEEPALIVE HELLOW, 12lu);
+            else
+                snprintf(buf, 128, HTTP_RESPONSE_200 HELLOW, 12lu);
+            response = buf;
+        }
+    }
+
+out:
     http_server_send(request->socket, response, strlen(response));
+    kfree(be_free);
     return 0;
 }
 

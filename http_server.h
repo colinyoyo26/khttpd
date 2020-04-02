@@ -8,5 +8,6 @@ struct http_server_param {
 };
 
 extern int http_server_daemon(void *arg);
+char *fib_sequence(long long k);
 
 #endif
