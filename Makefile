@@ -1,3 +1,5 @@
+TARGET_MODULE := khttpd
+
 KDIR=/lib/modules/$(shell uname -r)/build
 
 CFLAGS_user = -std=gnu99 -Wall -Wextra -Werror
@@ -10,6 +12,8 @@ khttpd-objs := \
 	http_parser.o \
 	http_server.o \
 	main.o		  
+
+PORT ?= 3999
 
 GIT_HOOKS := .git/hooks/applied
 all: $(GIT_HOOKS) http_parser.c bignum.h htstress
@@ -24,6 +28,11 @@ htstress: htstress.c
 
 check: all
 	@scripts/test.sh
+
+load:
+	sudo insmod $(TARGET_MODULE).ko port=$(PORT)
+unload:
+	sudo rmmod $(TARGET_MODULE) || true >/dev/null
 
 clean:
 	make -C $(KDIR) M=$(PWD) clean
