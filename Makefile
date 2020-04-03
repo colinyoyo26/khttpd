@@ -34,6 +34,17 @@ load:
 unload:
 	sudo rmmod $(TARGET_MODULE) || true >/dev/null
 
+verify: all
+	$(MAKE) unload
+	$(MAKE) load
+	@python3 scripts/verify.py $(PORT) 1 -b base16
+	@python3 scripts/verify.py $(PORT) 100 -b base16
+	@python3 scripts/verify.py $(PORT) 1000 -b base16
+	@python3 scripts/verify.py $(PORT) 10000 -b base16
+	@python3 scripts/verify.py $(PORT) 100000 -b base16
+	@python3 scripts/verify.py $(PORT) 1000000 -b base16
+	$(MAKE) unload
+
 clean:
 	make -C $(KDIR) M=$(PWD) clean
 	$(RM) htstress
