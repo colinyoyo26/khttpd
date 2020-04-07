@@ -9,6 +9,7 @@ struct http_server_param {
 
 struct khttp_service {
     bool is_stopped;
+    spinlock_t lock;
     struct list_head worker;
 };
 

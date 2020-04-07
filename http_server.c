@@ -176,6 +176,16 @@ static int http_parser_callback_message_complete(http_parser *parser)
     return 0;
 }
 
+static void free_work(struct khttp_worker *worker)
+{
+    kernel_sock_shutdown(worker->sock, SHUT_RDWR);
+    sock_release(worker->sock);
+    spin_lock(&daemon.lock);
+    list_del(&worker->list);
+    spin_unlock(&daemon.lock);
+    kfree(worker);
+}
+
 static void http_server_worker(struct work_struct *work)
 {
     char *buf;
@@ -216,8 +226,9 @@ static void http_server_worker(struct work_struct *work)
         if (request.complete && !http_should_keep_alive(&parser))
             break;
     }
-    kernel_sock_shutdown(socket, SHUT_RDWR);
+
     kfree(buf);
+    free_work(worker);
 }
 
 static struct work_struct *create_work(struct socket *sock)
@@ -228,23 +239,19 @@ static struct work_struct *create_work(struct socket *sock)
         return NULL;
 
     worker->sock = sock;
-
     INIT_WORK(&worker->khttp_work, http_server_worker);
-
+    spin_lock(&daemon.lock);
     list_add(&worker->list, &daemon.worker);
-
+    spin_unlock(&daemon.lock);
     return &worker->khttp_work;
 }
 
-static void free_work(void)
+static void flush_works(void)
 {
-    struct khttp_worker *l, *tar;
-    /* cppcheck-suppress uninitvar */
+    struct khttp_worker *l = NULL, *tar = NULL;
     list_for_each_entry_safe (tar, l, &daemon.worker, list) {
         kernel_sock_shutdown(tar->sock, SHUT_RDWR);
         flush_work(&tar->khttp_work);
-        sock_release(tar->sock);
-        kfree(tar);
     }
 }
 
@@ -284,7 +291,7 @@ int http_server_daemon(void *arg)
     }
 
     daemon.is_stopped = true;
-    free_work();
+    flush_works();
 
     return 0;
 }
