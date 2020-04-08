@@ -35,7 +35,8 @@
 
 #define RECV_BUFFER_SIZE 4096
 
-struct khttp_service daemon = {.is_stopped = false};
+struct khttp_service daemon = {.is_stopped = false,
+                               .lock = __SPIN_LOCK_UNLOCKED(daemon.lock)};
 extern struct workqueue_struct *khttp_wq;
 
 struct http_request {
