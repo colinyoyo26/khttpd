@@ -247,7 +247,7 @@ static struct work_struct *create_work(struct socket *sock)
     return &worker->khttp_work;
 }
 
-static void flush_works(void)
+static void flush_wq(void)
 {
     struct khttp_worker *l = NULL, *tar = NULL;
     list_for_each_entry_safe (tar, l, &daemon.worker, list) {
@@ -284,15 +284,10 @@ int http_server_daemon(void *arg)
         }
 
         queue_work(khttp_wq, work);
-
-        if (IS_ERR(work)) {
-            pr_err("can't create more worker process\n");
-            continue;
-        }
     }
 
     daemon.is_stopped = true;
-    flush_works();
+    flush_wq();
 
     return 0;
 }
