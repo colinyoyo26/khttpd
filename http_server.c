@@ -37,7 +37,6 @@
 
 struct khttp_service daemon = {.is_stopped = false,
                                .lock = __SPIN_LOCK_UNLOCKED(daemon.lock)};
-extern struct workqueue_struct *khttp_wq;
 
 struct http_request {
     struct socket *socket;
@@ -283,7 +282,7 @@ int http_server_daemon(void *arg)
             break;
         }
 
-        queue_work(khttp_wq, work);
+        schedule_work(work);
     }
 
     daemon.is_stopped = true;
